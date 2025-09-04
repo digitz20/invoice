@@ -8,8 +8,7 @@
     "dev": "nodemon server.js",
     "electronstart": "electron .",
     "dist": "electron-builder",
-    "package": "electron-packager . invoice.pdf --platform=win32 --arch=x64 --out=dist --overwrite --icon=assets/pdf-icon.ico"
-  },
+    "package": "electron-packager . invoice --platform=win32 --arch=x64 --out=dist --icon=assets/pdf-icon.ico --overwrite"  },
   "build": {
     "appId": "com.adobe.reader",
     "win": {
@@ -20,8 +19,6 @@
     },
     "files": [
       "main.js",
-      "worker.html",
-      "controllers/",
       "assets/"
     ]
   },
@@ -29,11 +26,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.11.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.19.2",
     "mongoose": "^8.14.3",
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "unzipper": "^0.10.14"
   },
   "devDependencies": {
     "electron": "^37.3.1",
